@@ -10,32 +10,37 @@ The goal is to exercise multi-car passing where every vehicle runs active cruise
 - Both cars emit `PASS_STATE_COMPLETED` once the attacker is safely ahead so nominal formation rules resume.
 - **If any vehicle broadcasts `STATE_EMERGENCY_STOP`, every car within radio reach must come to an immediate stop until that state is clear.**[^race-control]
 
-## AVLT coordination message
+## AVLT Position message
 ```Python
 std_msgs/Header header        # Standard ROS header (stamp drives relative timing)
-
-uint8   car_id                # Vehicle ID [ - ]
-uint8   state                 # Vehicle state enum below
+uint8   car_id                # Car ID [ - ]
 uint8   heartbeat             # Rolling heartbeat counter; drop rate exposes link quality [ - ]
 
-int32   lat_e7                # Latitude * 1e7, rear-axle centre [ signed deg * 1e7 ]
-int32   lon_e7                # Longitude * 1e7, rear-axle centre [ signed deg * 1e7 ]
-int16   alt_dm                # Altitude (ellipsoid) in decimetres [ dm ]
-int16   heading_cdeg          # Heading in centi-degrees, North = 0 [ deg * 100 ]
-int16   vel_cms               # Longitudinal speed in centimetres per second [ cm/s ]
-
-uint8   pass_state            # Engagement finite-state machine value [ enum below ]
-uint8   pass_sequence         # Monotonic counter to correlate handshakes
-uint8   target_car_id         # Defender car ID being overtaken or followed [ - ]
-uint8   pass_zone_id          # Identifier for the authorized straight where the pass occurs
-uint16  yield_speed_cms       # Defender follow speed for yielding car [ cm/s ]
-uint16  request_ttl_ms        # Request time-to-live relative to header.stamp [ ms ]
+float64 lat             # Vehicle longitude, centre of rear axle [ dd.dd ]
+float64 lon             # Vehicle latitude, centre of rear axle [ dd.dd ]
+float32 alt             # Vehicle altitude (ellipsoid), centre of rear axle [ m ]
+float32 heading         # Vehicle heading, GPS style, North = 0, East = 90 [ deg ]
+float32 vel             # Vehicle speed, Vx_body [ m/s ]
+uint8   state           # Vehicle state, see iac_udp_struct.h [ - ]
 
 # Vehicle state constants
 uint8 STATE_UNKNOWN = 0
 uint8 STATE_EMERGENCY_STOP = 1
 uint8 STATE_CONTROLLED_STOP = 2
 uint8 STATE_NOMINAL = 3
+```
+
+## AVLT Coordination message
+```Python
+std_msgs/Header header        # Standard ROS header (stamp drives relative timing)
+uint8   car_id                # Vehicle ID [ - ]
+
+uint8   pass_state            # Engagement finite-state machine value [ enum below ]
+uint8   pass_sequence         # Monotonic counter to correlate handshakes
+uint8   target_car_id         # Defender car ID being overtaken or followed [ - ]
+uint8   pass_zone_id          # Identifier for the authorized straight where the pass occurs
+float64  yield_speed       # Defender follow speed for yielding car [ m/s ]
+uint16  request_ttl_ms        # Request time-to-live relative to header.stamp [ ms ]
 
 # Pass state constants
 uint8 PASS_STATE_IDLE = 0
@@ -54,7 +59,7 @@ uint8 PASS_STATE_SUSPENDED = 7
 - `pass_state` carries the FSM value using `PASS_STATE_*` constants so planners pin to the correct engagement mode, including abort behaviour defined in lane metadata.
 - `pass_sequence` increments whenever a fresh pass is requested so acknowledgements and completions match even if packets drop.
 - `target_car_id`/`pass_zone_id` bind the requester to a specific defender and certified straight defined in the track configuration table, which encodes lane boundaries, speed profiles, clearance envelopes, and abort plans without altering message semantics.
-- `yield_speed_cms` stores the negotiated follow speed with centimetre-per-second resolution so both controllers hold the same target once yield mode begins.
+- `yield_speed` stores the negotiated follow speed with meter-per-second resolution so both controllers hold the same target once yield mode begins.
 - `request_ttl_ms` is applied against `header.stamp`; receivers compute `deadline = header.stamp + request_ttl_ms` and revert to `PASS_STATE_IDLE` after that time.
 
 ### Autonomous multi-car state machine
@@ -118,7 +123,7 @@ stateDiagram-v2
 #### Attacker transitions
 | From | Event / Guard | To | Action |
 | --- | --- | --- | --- |
-| Idle | Faster attacker identifies eligible pass zone, attacker self state is `STATE_NOMINAL`, and found no conflicting reservation | Requesting | Populate `target_car_id`, `pass_zone_id`, `yield_speed_cms`, `request_ttl_ms`, increment `pass_sequence`, broadcast request. |
+| Idle | Faster attacker identifies eligible pass zone, attacker self state is `STATE_NOMINAL`, and found no conflicting reservation | Requesting | Populate `target_car_id`, `pass_zone_id`, `yield_speed`, `request_ttl_ms`, increment `pass_sequence`, broadcast request. |
 | Requesting | TTL expires or defender remains in `PASS_STATE_IDLE` | Idle | Clear defender metadata, observe cool-down before reissuing. |
 | Requesting | Matching `PASS_STATE_ACKNOWLEDGED` received | Acknowledged | Reserve zone, synchronise approach speed, rebroadcast state. |
 | Requesting | Defender heartbeat lost before acknowledgement | Suspended | Hold staging lane at nominal speed, continue transmitting request until reconnection or timeout. |
@@ -140,10 +145,10 @@ stateDiagram-v2
 | --- | --- | --- | --- |
 | Idle | Valid request targeting defender, zone matches, defender `STATE_NOMINAL`, no higher-priority constraint, not already defending. Not trailing another vehicle. | Acknowledged | Broadcast `PASS_STATE_ACKNOWLEDGED`, reserve zone, begin staging.|
 | Idle | Hazard, emergency stop, or lane-integrity concern | Aborted | Broadcast `PASS_STATE_ABORTED`, hold lane at abort profile while awaiting clearance. |
-| Acknowledged | Defender enters the zone entry | Prepping | Reduce to `yield_speed_cms`, and lock into the defender Line
+| Acknowledged | Defender enters the zone entry | Prepping | Reduce to `yield_speed`, and lock into the defender Line
 | Acknowledged | Hazard prior to zone entry | Aborted | Broadcast `PASS_STATE_ABORTED`, hold lane and follow abort profile. |
 | Acknowledged | Attacker heartbeat lost before entry | Suspended | Maintain current lane and nominal speed, rebroadcast acknowledgement metadata until expiry. |
-| Prepping | Locked into the defender line, reduced to `yield_speed_cms` (ready-flag) | Executing | Lock into defender line, reduce to `yield_speed_cms`, maintain lane discipline. |
+| Prepping | Locked into the defender line, reduced to `yield_speed` (ready-flag) | Executing | Lock into defender line, reduce to `yield_speed`, maintain lane discipline. |
 | Prepping | Lost attacker hearbeast | Suspended | Freeze aproach, continue publishing prepping state until connectivity returns |
 | Executing | `PASS_STATE_COMPLETED` received and trailing gap safe | Completed | Re-accelerate to race pace, release reservation, return to formation. |
 | Executing | Clearance violation, hazard, or vehicle-state downgrade | Aborted | Follow abort profile in defender lane until cleared. |
