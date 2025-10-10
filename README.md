@@ -39,7 +39,7 @@ uint8   pass_state            # Engagement finite-state machine value [ enum bel
 uint8   pass_sequence         # Monotonic counter to correlate handshakes
 uint8   target_car_id         # Defender car ID being overtaken or followed [ - ]
 uint8   pass_zone_id          # Identifier for the authorized straight where the pass occurs
-float64  yield_speed       # Defender follow speed for yielding car [ m/s ]
+float32  yield_speed       # Defender follow speed for yielding car [ m/s ]
 uint16  request_ttl_ms        # Request time-to-live relative to header.stamp [ ms ]
 
 # Pass state constants
@@ -55,7 +55,7 @@ uint8 PASS_STATE_SUSPENDED = 7
 
 ### Field guidance
 - `car_id`/`state` identify the publishing vehicle and communicate whether it is nominal, while `heartbeat` reuses the AVLT counter so peers infer link quality from missed increments.
-- `lat_e7`/`lon_e7`/`alt_dm`/`heading_cdeg`/`vel_cms` retain ~1 cm horizontal resolution worldwide, ~0.1 m altitude resolution, and 0.01°/0.01 m/s orientation and speed resolution with compact integer storage.
+- `lat`/`lon`/`alt`/`heading`/`vel` capture the sensed pose and longitudinal speed in floating-point units aligned with the planner inputs.
 - `pass_state` carries the FSM value using `PASS_STATE_*` constants so planners pin to the correct engagement mode, including abort behaviour defined in lane metadata.
 - `pass_sequence` increments whenever a fresh pass is requested so acknowledgements and completions match even if packets drop.
 - `target_car_id`/`pass_zone_id` bind the requester to a specific defender and certified straight defined in the track configuration table, which encodes lane boundaries, speed profiles, clearance envelopes, and abort plans without altering message semantics.
