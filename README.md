@@ -128,9 +128,10 @@ stateDiagram-v2
 | Requesting | Matching `PASS_STATE_ACKNOWLEDGED` received | Acknowledged | Reserve zone, synchronise approach speed, rebroadcast state. |
 | Requesting | Defender heartbeat lost before acknowledgement | Suspended | Hold staging lane at nominal speed, continue transmitting request until reconnection or timeout. |
 | Requesting | Hazard, rule violation, or race-control override detected | Aborted | Broadcast `PASS_STATE_ABORTED`, follow abort profile in-lane. |
-| Acknowledged | Attacker reaches zone entry with defender ready metadata present | Executing | The defender has sent executing, and attacker has pass the zone entry. |
+| Acknowledged | Attacker reaches zone entry with defender ready metadata present | Prepping | The defender has sent executing, and attacker has pass the zone entry. |
 | Acknowledged | Hazard, rule violation, or race-control override detected | Aborted | Broadcast `PASS_STATE_ABORTED`, follow abort profile. |
 | Acknowledged | Defender heartbeat lost before entry | Suspended | Freeze approach, continue publishing acknowledgement metadata until connectivity returns. |
+| Prepping | Defender is getting ready, waiting for defender executing state. And to be in passing zone | Executing | Ready to overtake; |
 | Executing | Clear-ahead criteria satisfied before zone exit | Completed | Broadcast `PASS_STATE_COMPLETED`, release zone reservation. |
 | Executing | Clearance violation, defender downgrade, emergency stop, or heartbeat timeout | Aborted | Follow abort profile while maintaining assigned lanes. |
 | Completed | Cool-down interval elapsed and spacing restored | Idle | Reset metadata; ready for fresh request. |
