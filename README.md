@@ -1,4 +1,4 @@
-# Laguna Seca Multicar Rules of Engagement
+# Multicar Rules of Engagement
 
 > **Phase 0 -- 2-Vehicle Bare Bones**
 > This document describes the Phase 0 implementation scope. Only **two vehicles** are permitted on track at any time. The full passing handshake is required, but multi-vehicle coordination features (queueing, mutual exclusion, three-wide prevention) are deferred to later phases. See the [Roadmap](#roadmap) for what comes next.
