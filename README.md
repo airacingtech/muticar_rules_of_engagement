@@ -1,4 +1,8 @@
 # Laguna Seca Multicar Rules of Engagement
+
+> **Phase 0 -- 2-Vehicle Bare Bones**
+> This document describes the Phase 0 implementation scope. Only **two vehicles** are permitted on track at any time. The full passing handshake is required, but multi-vehicle coordination features (queueing, mutual exclusion, three-wide prevention) are deferred to later phases. See the [Roadmap](#roadmap) for what comes next.
+
 The goal is to exercise multi-car passing where every vehicle runs active cruise control and follows negotiated speed profiles without race control intervention.
 
 ## Summary of the Rules
@@ -159,17 +163,15 @@ stateDiagram-v2
 | Aborted | Abort profile complete and clearance granted | Idle | Reset metadata; ready to evaluate future requests. |
 
 
-#### Multi-vehicle constraints
-- Zone reservation: Only one engagement per `pass_zone_id` at a time; the first pair to reach `PASS_STATE_ACKNOWLEDGED` holds the lock.
-- Queueing: Each vehicle queues incoming requests by distance-to-zone and sequence number; only the queue head may grant acknowledgement.
-- Mutual exclusion: A vehicle cannot attack and defend in overlapping zones. If already defending while executing a pass, it declines new requests to avoid cascading manoeuvres.
-- Minimum spacing: Before issuing a request the attacker ensures any third vehicle between attacker and defender is at least one car length outside the zone to avoid three-wide conflicts.
-- Zone certification: Race control distributes pass-zone metadata tagged with supported vehicle combinations; only zones with adequate clearance may be requested.
-- Zone discipline: Pass engagements restrict yield-speed profiles to the configured zone boundaries; lane changes are allowed outside the zone provided they respect spacing, signalling, and track rules.
-- Heartbeat-aware queuing: If a car stops transmitting heartbeat messages, pending requests referencing it stay on hold until heartbeats resume. Requests expiring before then must be resubmitted.
-- Global abort propagation: Any `PASS_STATE_ABORTED` announcement for a zone forces all vehicles advertising that zone to drop to `PASS_STATE_IDLE` and re-evaluate.
-- Abort lane discipline: Pass-zone configurations define the abort profile and lane assignments; all nearby vehicles hold their current lanes (attacker in the passing lane, defender in the defender lane) until the zone clears.
-- Cool-down enforcement: After a completion or abort both participants stay in `PASS_STATE_IDLE` for the shared cool-down window so trailing vehicles get a deterministic opportunity to request the next pass.
+#### Two-vehicle constraints (Phase 0)
+With only two cars on track, several N-vehicle concerns (queueing, mutual exclusion, three-wide prevention) do not apply. The constraints below are the subset enforced in Phase 0.
+
+- Zone reservation: Only one engagement per `pass_zone_id` at a time. With two vehicles this is trivially satisfied -- the single pair either holds the reservation or does not.
+- Zone certification: Pass-zone metadata defines supported clearance envelopes; only zones with adequate lateral clearance may be requested.
+- Zone discipline: Yield-speed profiles are restricted to the configured zone boundaries; lane changes are allowed outside the zone provided they respect spacing and track rules.
+- Heartbeat awareness: If a car stops transmitting heartbeat messages, the pending request referencing it stays on hold until heartbeats resume. Requests expiring before reconnection must be resubmitted.
+- Abort lane discipline: Pass-zone configurations define the abort profile and lane assignments; both vehicles hold their current lanes (attacker in the passing lane, defender in the defender lane) until the zone clears.
+- Cool-down enforcement: After a completion or abort, both participants stay in `PASS_STATE_IDLE` for the shared cool-down window before a new pass may be requested.
 
 ### Emergency stop coordination
 - Emergency stops trigger only on a transition into `STATE_EMERGENCY_STOP`; each listener latches the initiating `car_id` and message `header.stamp` as the stop event.
@@ -188,5 +190,33 @@ stateDiagram-v2
 - Race control overrides (`STATE_CONTROLLED_STOP`[track red or vehicle red flag] or `STATE_EMERGENCY_STOP`[purple flag]) force an immediate move to `PASS_STATE_ABORTED`.
 - Connectivity-aware policies ensure cars falling outside the ~X m V2V envelope pause the manoeuvre in `PASS_STATE_SUSPENDED` or abort if reconnection misses the timeout, preventing blind passes.
 - Formal verification should confirm every path completes or aborts with a deterministic resolution so more than two cars cannot livelock in the same zone.
+
+---
+
+## Roadmap
+
+### Phase 1: Robustness & Hardening
+The next priority after Phase 0 is making the 2-vehicle system resilient to real-world communication and timing issues.
+
+- Heartbeat loss detection and `PASS_STATE_SUSPENDED` recovery logic
+- Delayed acknowledgment handling and packet loss recovery
+- Connectivity-aware state transitions (automatic suspend/resume based on link quality)
+- Abort propagation validation between both vehicles
+- Full cool-down enforcement with configurable timers
+- Formal verification that every FSM path terminates in `IDLE` or `ABORTED`
+
+### Phase 2: N-Vehicle Support (work in progress)
+Phase 2 scales the system to three or more vehicles on track simultaneously. Details will be refined as Phase 1 matures.
+
+- 3+ vehicles on track with concurrent pass engagements
+- Zone reservation locking: first pair to reach `PASS_STATE_ACKNOWLEDGED` holds the lock; others queue
+- Request queueing by distance-to-zone and `pass_sequence` number
+- Mutual exclusion: a vehicle cannot attack and defend in overlapping zones
+- Minimum spacing constraints and three-wide conflict prevention
+- Zone-certified vehicle combinations (metadata tags per zone)
+- Heartbeat-aware queueing across multiple peers
+- Global abort propagation: any `PASS_STATE_ABORTED` for a zone forces all vehicles in that zone to `PASS_STATE_IDLE`
+
+---
 
 [^race-control]: The safe-pass flow assumes an active human race control monitoring the event. Race control must be prepared to halt the field if the transponder system fails and to red-stop trailing cars when a leading transpondered vehicle leaves the track or stops unexpectedly. Teams should evaluate additional edge cases and recognise the system's limitations; they may run their own perception stacks, but cannot assume that other entrants do so. Participation requires a working ACC that respects the transponder-provided distances.
