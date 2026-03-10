@@ -75,7 +75,6 @@ jobs:
           retention-days: 90
 
       - name: Create or update latest release
-        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
