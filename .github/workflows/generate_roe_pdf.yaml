@@ -20,7 +20,7 @@ jobs:
       - name: Install pandoc and LaTeX
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-xetex texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra
+          sudo apt-get install -y pandoc texlive-xetex texlive-latex-recommended texlive-fonts-recommended texlive-latex-extra librsvg2-bin
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,6 +47,7 @@ jobs:
         run: |
           mmdc -i README.md -o README.rendered.md \
             -p /tmp/puppeteer-config.json \
+            -e png \
             -b white
 
       - name: Generate PDF
