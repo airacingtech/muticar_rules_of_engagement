@@ -2,13 +2,13 @@ name: Generate Rules of Engagement PDF
 
 on:
   push:
-    branches: [main, phase_0]
-    paths:
-      - 'README.md'
-  pull_request:
     branches: [main]
     paths:
       - 'README.md'
+  # pull_request:
+  #   branches: [main]
+  #   paths:
+  #     - 'README.md'
   workflow_dispatch:
 
 jobs:
