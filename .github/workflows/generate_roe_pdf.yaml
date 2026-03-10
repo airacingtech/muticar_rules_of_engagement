@@ -51,3 +51,15 @@ jobs:
           name: multicar-rules-of-engagement-pdf
           path: multicar_rules_of_engagement.pdf
           retention-days: 90
+
+      - name: Create or update latest release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes 2>/dev/null || true
+          gh release create latest \
+            --title "Latest Rules of Engagement" \
+            --notes "Auto-generated PDF from the latest README.md on \`$(git rev-parse --short HEAD)\` ($(date +%Y-%m-%d))." \
+            --latest \
+            multicar_rules_of_engagement.pdf
