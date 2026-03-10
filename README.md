@@ -1,5 +1,11 @@
 # Multicar Rules of Engagement
 
+| | |
+|---|---|
+| **Version** | 0.1.0 |
+| **Date** | 2026-03-09 |
+| **Status** | Draft |
+
 > **Phase 0 -- 2-Vehicle Bare Bones**
 > This document describes the Phase 0 implementation scope. Only **two vehicles** are permitted on track at any time. The full passing handshake is required, but multi-vehicle coordination features (queueing, mutual exclusion, three-wide prevention) are deferred to later phases. See the [Roadmap](#roadmap) for what comes next.
 
@@ -74,6 +80,15 @@ uint8 PASS_STATE_ABORTED = 6
 - `target_car_id`/`pass_zone_id` bind the requester to a specific defender and certified straight defined in the track configuration table, which encodes lane boundaries, speed profiles, clearance envelopes, and abort plans without altering message semantics.
 - `yield_speed` stores the negotiated follow speed with meter-per-second resolution so both vehicles hold the same target once yield mode begins.
 - `request_ttl_ms` is applied against `header.stamp`; receivers compute `deadline = header.stamp + request_ttl_ms` and revert to `PASS_STATE_IDLE` after that time. As a `uint16`, the maximum value is 65535 ms (~65 s), which is sufficient for Phase 0 pass engagements.
+
+### Following behaviour (pre-pass)
+When a faster vehicle (the prospective attacker) closes on a slower vehicle (the prospective defender), the following rules apply before any pass request is issued:
+
+- **Free line choice:** The trailing vehicle may follow any racing line; it is not required to slot behind the defender's lane.
+- **Speed matching:** Once within transponder range, the trailing vehicle matches the defender's speed as reported by the AVLT Position `vel` field.
+- **Minimum following distance:** The trailing vehicle maintains at least a configurable minimum gap (e.g., `transponder.min_following_distance_m`) behind the defender. The gap is measured longitudinally along the track centreline using both vehicles' transponder positions.
+- **No overtaking outside a pass zone:** The trailing vehicle must not move ahead of the defender until a full pass handshake has been completed and both vehicles are inside an authorized pass zone.
+- **Transition to requesting:** When the trailing vehicle determines it is faster and an eligible pass zone is ahead, it may issue `PASS_STATE_REQUESTING`. Until the defender acknowledges, both vehicles continue following these rules.
 
 ### Autonomous pass state machine
 Each vehicle runs the same finite-state machine keyed by `pass_state`. The attacker is the car that issued the current request, and the defender is the `target_car_id`. The FSM governs overtaking, yielding, and formation behaviour without manual input. In Phase 0 the FSM handles a single attacker-defender pair; later phases scale to multiple competitors through zone reservations and queued requests.
