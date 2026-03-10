@@ -20,14 +20,7 @@ Two autonomous vehicles share a track during a race or supervised practice sessi
 
 If any step fails (timeout, lost heartbeat, hazard), the FSM moves to `PASS_STATE_ABORTED` or `PASS_STATE_SUSPENDED` -- see [Abort handling](#abort-handling) and [State semantics](#state-semantics).
 
-## Summary of the Rules
-- Passing is allowed only on certified straights that provide enough lateral clearance for both cars to hold their lanes.
-- The attacker broadcasts `PASS_STATE_REQUESTING` in `pass_state` before entering a pass zone, including its own ID, the defender ID, and the requested zone ID.
-- The defender must reply with `PASS_STATE_ACKNOWLEDGED` in `pass_state` before the maneuver starts; until then both cars remain in formation and the attacker uses cruise control to manage spacing.
-- After acknowledgment, the attacker and defender may stage for the pass: maintain nominal speed; lane positioning isn’t required until the straight. At the entry to the authorized passing zone, the defender drops to the negotiated yield speed and the attacker moves to the designated passing lane.
-- Outside authorized zones, vehicles may change lanes to set up the maneuver but must maintain nominal speed and spacing until they enter a passing zone or receive a race control directive.
-- Both cars emit `PASS_STATE_COMPLETED` once the attacker is safely ahead so nominal formation rules resume.
-- **If any vehicle broadcasts `STATE_EMERGENCY_STOP`, every car within radio reach must come to an immediate stop until that state is clear.**[^race-control]
+> **Safety override:** If any vehicle broadcasts `STATE_EMERGENCY_STOP`, every car within radio reach must come to an immediate stop until that state is clear.[^race-control]
 
 ## AVLT Position message
 ```Python
